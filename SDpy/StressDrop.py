@@ -491,7 +491,7 @@ def Para_init():
     p_dict={'controlfile':'',
     'method':1,
     'wv':'p',
-    'Main_events':'',
+    'Target_events':'',
     'EGF_events':'',
     'All_stations':'',
     'wave_align':'cc',
@@ -557,10 +557,10 @@ def stressdrop(controlfile):
         exec(f"{key} = value")
     method=p_dict['method']
     wv=p_dict['wv']
-    d1=pd.read_csv(p_dict['Main_events'])
-    Main_events=list(d1['Event ID'].values)
-    for i in range(len(Main_events)):
-        Main_events[i]=str(Main_events[i])
+    d1=pd.read_csv(p_dict['Target_events'])
+    Target_events=list(d1['Event ID'].values)
+    for i in range(len(Target_events)):
+        Target_events[i]=str(Target_events[i])
     if method==2:
         EGF_info_path=p_dict['EGF_events']
         if EGF_info_path:
@@ -645,7 +645,7 @@ def stressdrop(controlfile):
     paths['out_path']=out_path
 
     all_stations=all_stas.copy()
-    for eid in range(len(Main_events)):
+    for eid in range(len(Target_events)):
         freqmains,specmains,stfys={},{},{}
         
         j=0
@@ -658,7 +658,7 @@ def stressdrop(controlfile):
                     if method==1:
                         Method='Single'
             
-                    fname=[Main_events[eid],EGF_event]
+                    fname=[Target_events[eid],EGF_event]
                     all_stas=effective_sta_EGF(method,data_path,all_stations,fname)
                     all_sta=all_stas
                     if plot_station:
@@ -666,7 +666,7 @@ def stressdrop(controlfile):
                     else:
                         plot_station=all_stations   
                     Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df=Read_metadata(all_stas,d3,fname,data_path,wave_align=wave_align)
-                    moment=(d3[d3['Event ID']==Main_events[eid]]['Moment']).values[0]
+                    moment=(d3[d3['Event ID']==Target_events[eid]]['Moment']).values[0]
                     
                     if method==2:
                         sourcepara_df['EGF']=[fname[1]]
@@ -686,13 +686,13 @@ def stressdrop(controlfile):
                         j=1
                         
                     if mode==0 or (mode==1 and EGF_event==EGF_events[-1]):
-                        get_stressdrop(Main_events[eid], sourcepara_df, fc1main, all_sta_spec, trtm, wv, source_model, Q,
-                                       fsf, rho, c, U, moment, k, beta, Dep[station][Main_events[eid]], assume_drop)
+                        get_stressdrop(Target_events[eid], sourcepara_df, fc1main, all_sta_spec, trtm, wv, source_model, Q,
+                                       fsf, rho, c, U, moment, k, beta, Dep[station][Target_events[eid]], assume_drop)
                     
-                    excel_path=os.path.join(out_path,Main_events[eid])
+                    excel_path=os.path.join(out_path,Target_events[eid])
                     if not os.path.exists(excel_path):
                         os.makedirs(excel_path)
-                    sourcepara_df.to_excel(os.path.join(excel_path,f'{wv}_{fixed_window}s_{Main_events[eid]}_{Method}_{source_model}.xlsx'))   
+                    sourcepara_df.to_excel(os.path.join(excel_path,f'{wv}_{fixed_window}s_{Target_events[eid]}_{Method}_{source_model}.xlsx'))   
                     if EGF_event!=EGF_events[-1]:     
                         freqmains[EGF_event]=freqmain;specmains[EGF_event]=specmain;stfys[EGF_event]=stfy
                     dataframe_final[eid] =sourcepara_df
@@ -732,4 +732,3 @@ def stressdrop(controlfile):
             final.to_excel(os.path.join(excel_path,f'{wv}_{fixed_window}s_AllTargetEvents_{EGF_events[e]}_{source_model}.xlsx'))         
     print('#'*72,'\n','\t'*4,'Complete !\n','#'*72,sep='')  
     return final
-
