@@ -176,7 +176,7 @@ def plot_event_waveform(win_length, t_coda, taper_count, overlap_ratio, egf_list
 
     # Set title
     is_egf = event_label == 'EGF' or event_label in egf_list
-    title = f"{'EGF' if is_egf else 'Main'} event: {event_label}"
+    title = f"{'EGF' if is_egf else 'Tartget'} event: {event_label}"
     ax.set_title(title, fontsize=22, fontweight='bold')
     station_name = stream[0].stats.station.strip()
     ax.text(max(time_vals), 1.15*min(y_min, -y_max), station_name,
