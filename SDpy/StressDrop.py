@@ -103,7 +103,7 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
 
         if egf_event:
             print('#' * 72, f"\nAmplitude Spectral Ratio fitted by {wave_type_main} wave\n", '#' * 72, sep='')
-            result_df['wavetype'] = [wave_type_main]
+            # result_df['wavetype'] = [wave_type_main]
 
             if isinstance(fit_range, list) and len(fit_range) > 0:
                 l = np.where(freq_bin >= fit_range[0])[0][0];u = np.where(freq_bin <= fit_range[-1])[0][-1]
@@ -671,8 +671,8 @@ def stressdrop(controlfile):
                     if method==2:
                         sourcepara_df['EGF']=[fname[1]]
                         sourcepara_df['Origtime_egf'] = list(d3[d3['Event ID'] == fname[1]]['Origin time'])[0]
-                    elif method==1:
-                        pass 
+                    sourcepara_df['wavetype']=[wv]
+                  
                     s=all_sta.copy()
                     specmain,stfy={},{}
                     freqmain = {};wefc = {};we = {};wen = {};trte = {};stfx = {};
