@@ -47,6 +47,7 @@ def main(eqtype,events_path,out_path,station_path,center):
     velocity_model =  TauPyModel(model=CONFIG["processing"]["velocity_model"])
     
     metadatas={}
+    
     # results = []
     for i, event in events_df.iterrows():
         try:
@@ -78,27 +79,38 @@ def process_single_event(eqtype,event, station_df,velocity_model,out_path,center
     for _, row in station_df.iterrows():
         network = row['Networks']
         station = row['Stations']
+        day_start = UTCDateTime(UTCDateTime(event["Origin time"]))         
+        endtime = day_start + 86400
         try:
-            day_start = UTCDateTime(UTCDateTime(event["Origin time"]))         
-            endtime = day_start + 86400
             client=Client(center)
+            waveform = download_waveform(out_path,eqtype,event,center,network,station)
             inventory = client.get_stations(network=network, station=station,
                                   location="*", channel=CONFIG["processing"]["channel"],
                                   starttime= day_start,
                                   endtime=endtime,
                                   level="response")
-            station_info = get_stations_information(event, inventory,velocity_model)
-            waveform = download_waveform(eqtype,event,station_info,center)
+        except:
+            if center.upper()!='IRIS':
+                center='IRIS'
+                client=Client(center)
+                waveform = download_waveform(out_path,eqtype,event,center,network,station)
+                inventory = client.get_stations(network=network, station=station,
+                                  location="*", channel=CONFIG["processing"]["channel"],
+                                  starttime= day_start,
+                                  endtime=endtime,
+                                  level="response")
+                
+        try:
             if waveform is not None:
+                station_info = get_stations_information(event, inventory,velocity_model)
                 processed,st= process_waveform(eqtype,waveform, inventory)
                 magnitude = calculate_magnitude(eqtype,event,processed,inventory,station_info)
                 if magnitude is not None:
                     mag_data.append(magnitude)
                     metadata=save_results(eqtype,st, event, station_info, magnitude,out_path)
                     metadatas=pd.concat([metadatas,pd.DataFrame([metadata])],ignore_index=True)
-                    
+                
         except:
-            traceback.print_exc()
             print(f'Error processing event {event["Event ID"]} on station:{station}')
     
     
@@ -159,16 +171,18 @@ def obspy_to_sac_header(stream, inventory):
         tr.stats.sac.stdp = metadata["local_depth"]
         tr.stats.sac.cmpaz = metadata["azimuth"]
         tr.stats.sac.cmpinc = metadata["dip"] + 90 # different definitions
-def download_waveform(eqtype,event, station,center):
+def download_waveform(out_path,eqtype,event,center,net,sta):
     # CONFIG=config()
+    output_dir = os.path.join(out_path,sta)
+    os.makedirs(output_dir, exist_ok=True)
     
-    start = UTCDateTime(event["Origin time"]) + station["P_arrival"] - 60*float(CONFIG["processing"]["pre_event_time"])
-    end = UTCDateTime(event["Origin time"]) +station["S_arrival"] + 60*float(CONFIG["processing"]["post_event_time"])
+    start = UTCDateTime(event["Origin time"]) - 60*float(CONFIG["processing"]["pre_event_time"])
+    end = UTCDateTime(event["Origin time"])  + 60*float(CONFIG["processing"]["post_event_time"])
     try:
         client=Client(center)
         stream = client.get_waveforms(
-            network=station["network"],
-            station=station["station"],
+            network=net,
+            station=sta,
             location="*",
             channel=CONFIG["processing"]["channel"],
             starttime=start,
@@ -176,10 +190,20 @@ def download_waveform(eqtype,event, station,center):
             attach_response=True
         )
         
-        print(f'Success on station: {station["station"]}')
+        for tr in stream:
+            if eqtype == "EGF":
+                if 'EGF' not in str(event['Event ID']).upper():
+                    filename = f"EGF{event['Event ID']}_{tr.id}.SAC"
+                else:
+                    filename = f"{event['Event ID']}_{tr.id}.SAC"
+            else:
+                filename = f"{event['Event ID']}_{tr.id}.SAC"
+            
+            tr.write(os.path.join(output_dir, filename), format="SAC")
+        print(f'Success on station: {sta}')
         return stream
     except Exception as e:
-        print(f'Failed on station: {station["station"]}')
+        print(f'Failed on station: {sta}')
         print(e)
         return None
 
@@ -217,42 +241,46 @@ def calculate_magnitude(eqtype,event,stream0, inventory,station_info):
         # stream.remove_response(inventory=inventory, output="VEL")
         east = stream.select(component="E")[0]
         north = stream.select(component="N")[0]
-    except IndexError:
-        raise ValueError("Missing components for magnitude calculation")
+    except:
+        print(("Missing components for magnitude calculation"))
+    # except IndexError:
+    #     raise ValueError("Missing components for magnitude calculation")
     paz_wa = {'poles': [-6.283 + 4.7124j, -6.283 - 4.7124j],
                 'zeros': [0 + 0j], 'gain': 1, 'sensitivity': 2080}
     params = CONFIG["processing"]["filter_params"]
     #if you didn't remove the reponse, please use below two lines.
-    east.filter(
-            params["type"],
-            freqmin=params["freqmin"],
-            freqmax=params["freqmax"],
-            corners=params["corners"],
-            zerophase=params["zerophase"]
-        )   
-    north.filter(
-            params["type"],
-            freqmin=params["freqmin"],
-            freqmax=params["freqmax"],
-            corners=params["corners"],
-            zerophase=params["zerophase"]
-        )   
-    east.simulate(paz_remove = None, paz_simulate = paz_wa, taper=True,taper_fraction=0.02)
-    north.simulate(paz_remove = None, paz_simulate = paz_wa, taper=True,taper_fraction=0.02)
-    
-    amp_e = (abs(np.max(east.data)) + abs(np.min(east.data))) / 2
-    amp_n = (abs(np.max(north.data)) + abs(np.min(north.data))) / 2
-    amp = (amp_e + amp_n) / 2 * (10 ** (3))
-    distance = math.sqrt(station_info["distance"]**2+float(event["Dep"])**2)
-    # Hutton-Boore formula
-    if amp <= 0:
-        return None
-    local_mag =log10(amp) + 1.11*log10(distance/100) + 0.00189*(distance-100) + 3.0
-    local_mag = round(local_mag, 1)
+    try:
+        east.filter(
+                params["type"],
+                freqmin=params["freqmin"],
+                freqmax=params["freqmax"],
+                corners=params["corners"],
+                zerophase=params["zerophase"]
+            )   
+        north.filter(
+                params["type"],
+                freqmin=params["freqmin"],
+                freqmax=params["freqmax"],
+                corners=params["corners"],
+                zerophase=params["zerophase"]
+            )   
+        east.simulate(paz_remove = None, paz_simulate = paz_wa, taper=True,taper_fraction=0.02)
+        north.simulate(paz_remove = None, paz_simulate = paz_wa, taper=True,taper_fraction=0.02)
+        
+        amp_e = (abs(np.max(east.data)) + abs(np.min(east.data))) / 2
+        amp_n = (abs(np.max(north.data)) + abs(np.min(north.data))) / 2
+        amp = (amp_e + amp_n) / 2 * (10 ** (3))
+        distance = math.sqrt(station_info["distance"]**2+float(event["Dep"])**2)
+        # Hutton-Boore formula
+        if amp <= 0:
+            return None
+        local_mag =log10(amp) + 1.11*log10(distance/100) + 0.00189*(distance-100) + 3.0
+        local_mag = round(local_mag, 1)
+    except:
+        local_mag=np.nan
     return local_mag
 
 def save_results(eqtype,stream, event, station, magnitude,out_path):
-    
     output_dir = os.path.join(out_path,station["station"])
     os.makedirs(output_dir, exist_ok=True)
  
@@ -289,6 +317,7 @@ def save_final_results(eqtype,results,out_path):
     print(f"\nFinal results saved to {output_path}")
     
 def download_repsonse(events_path,resp_path,station_path,center):
+    miss_resp = pd.DataFrame({'Networks':[],'Stations':[]})
     events_df = load_events(events_path)
     station_df =pd.read_csv(station_path)
     nets=station_df['Networks'].values
@@ -296,13 +325,28 @@ def download_repsonse(events_path,resp_path,station_path,center):
     t1=min(events_df['Origin time'].values)-1000
     t2=max(events_df['Origin time'].values)+1000
     os.makedirs(resp_path,exist_ok=True)
+    i=0
     for n,s in zip(nets,stas):
-        client=Client(center)
-        response=client.get_stations(network=n, station=s, location="*", channel='*',
-                                   starttime=UTCDateTime(t1),endtime=UTCDateTime(t2),level="response")
-        response.write(os.path.join(resp_path,f'{n}..{s}.xml'), format="STATIONXML")
-        print(f'File {n}..{s}.xml is saved.')
-        
+        try:
+            client=Client(center)
+            response=client.get_stations(network=n, station=s, location="*", channel='*',
+                                       starttime=UTCDateTime(t1),endtime=UTCDateTime(t2),level="response")
+            response.write(os.path.join(resp_path,f'{n}..{s}.xml'), format="STATIONXML")
+            print(f'File {n}..{s}.xml is saved.')
+        except:
+            try:
+                if center.upper()!='IRIS':
+                    center='IRIS'
+                    client=Client(center)
+                    response=client.get_stations(network=n, station=s, location="*", channel='*',
+                                               starttime=UTCDateTime(t1),endtime=UTCDateTime(t2),level="response")
+                    response.write(os.path.join(resp_path,f'{n}..{s}.xml'), format="STATIONXML")
+                    print(f'File {n}..{s}.xml is saved.')
+            except:
+                miss_resp.loc[i] = [n,s]
+                i += 1
+                print(f'Fail to download the response file of {n}..{s}')
+    miss_resp.to_csv(os.path.join(resp_path,'Missing response.csv'),index=False)
 
 def download_data(Target_events,data_path,all_stations,resp_path,chan,data_center='IRIS',EGF_events=None,**paras):
     
@@ -319,7 +363,7 @@ def download_data(Target_events,data_path,all_stations,resp_path,chan,data_cente
     if 'past_event_time' in paras:
         past_event_time=paras['past_event_time']
     else:
-        past_event_time=1.5
+        past_event_time=2.5
     
     global CONFIG
     CONFIG=config(chan,velocity_model,pre_event_time,past_event_time)
