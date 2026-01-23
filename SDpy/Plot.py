@@ -262,13 +262,12 @@ def plot_station_spectrum(all_station_labels, egf_event_id, freq_main, amp_main,
     ax.set_ylabel('Amplitude (nm/Hz)', fontsize=26, fontweight='semibold')
 
     # Set log ticks
+    ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
     ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
     ax.get_xaxis().get_major_formatter().labelOnlyBase = True
     ax.get_xaxis().get_minor_formatter().labelOnlyBase = False
     ax.tick_params(axis='x', which='minor', bottom=True)
     ax.tick_params(axis='both', which='both', length=4.0, labelsize=24)
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True, nbins=3))
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True, nbins=5))
 
     # Font size for ticks
     for tick in ax.xaxis.get_major_ticks():
@@ -774,8 +773,8 @@ def create_spectral_ratio_plots(paths, stations, s_arrivals, p_arrivals, origin_
                 ax_spec.set_xlim([x_start, x_end])
                 plot_range=np.ceil(np.log10(all_y_max)-np.log10(all_y_min))
                 ax_spec.set_ylim(10 ** np.floor(np.log10(all_y_min)-plot_range/2-1-1), 10 ** np.ceil(np.log10(all_y_max)+plot_range/2+1))
-                ax_spec.yaxis.set_major_locator(MaxNLocator(integer=True, nbins=5))
-                ax_spec.xaxis.set_major_locator(MaxNLocator(integer=True, nbins=3))
+                ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
+                ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
                 
     if not egf_event_files[station]:
         ax_spec1 = fig1.add_subplot(gs1[1:3, 0])
