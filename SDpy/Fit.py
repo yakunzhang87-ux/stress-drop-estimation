@@ -164,7 +164,7 @@ def determine_asymptote_bounds(freq_bins,spectral_data):
     
     return upper_bound_major, lower_bound_major, upper_bound_minor, lower_bound_minor
 
-def optimize_corner_freq(freq_bins, spec_ratio, nyquist_freq, station, model, path, fit_method='L-BFGS-B'):
+def optimize_corner_freq(freq_bins, spec_ratio, nyquist_freq, station, model, path, fit_method='L-BFGS-B', fit_amp_ratio=2):
     """
     Refines and determines the optimal corner frequency through spectral ratio fitting.
 
@@ -187,7 +187,7 @@ def optimize_corner_freq(freq_bins, spec_ratio, nyquist_freq, station, model, pa
     """
     freq_copy = freq_bins.copy()
     spec_copy = spec_ratio.copy()
-    indices = np.where(spec_ratio<2)
+    indices = np.where(spec_ratio<fit_amp_ratio)
     if len(indices[0])!=0:
         indice = indices[0][0]
     else:
@@ -626,7 +626,8 @@ def find_optimal_fit(model_type, num_workers, fc_min, fc_max, **kwargs):
                 station,
                 model_type,
                 fig_path,
-                fit_method=fit_method)
+                fit_method=fit_method,
+                fit_amp_ratio=fit_amp_ratio)
             for station in station_keys)
     
     # Weighted fitting mode
@@ -715,7 +716,8 @@ def find_optimal_fit(model_type, num_workers, fc_min, fc_max, **kwargs):
                     sumtype,
                     model_type,
                     fig_path,
-                    fit_method=fit_method)
+                    fit_method=fit_method,
+                    fit_amp_ratio=fit_amp_ratio)
             result, fc1_scan, _, _ = fit_results
             popt = result[sumtype]['popt']
             var = result[sumtype]['var']
