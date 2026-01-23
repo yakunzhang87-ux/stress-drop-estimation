@@ -344,7 +344,8 @@ def optimize_corner_freq(freq_bins, spec_ratio, nyquist_freq, station, model, pa
         plt.figure()
         plt.plot(freq_copy, spec_copy, '-', label='Observed')
         plt.plot(freq_copy, fit_curve, '--',linewidth=3, label='Fitted model')
-        plt.text(min(freq_copy), min(spec_copy), f'fc1={best_fc1:.2f} Hz\nfc2={best_fc2:.2f} Hz\nuncertainty={fc1_uncertainty:.2f}\nVar={best_var:.4f}')
+        plt.text(0.02, 0.02, f'fc1={best_fc1:.2f} Hz\nfc2={best_fc2:.2f} Hz\nuncertainty={fc1_uncertainty:.2f}\nVar={best_var:.4f}',
+             transform=plt.gca().transAxes, verticalalignment='bottom', horizontalalignment='left')
         plt.xscale('log'); plt.yscale('log')
         plt.xlabel('Frequency (Hz)'); plt.ylabel('Spectral ratio')
         plt.legend(); plt.grid(True);
