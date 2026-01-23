@@ -210,9 +210,12 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
               '\n========================================================================')
   
     # if mag_diff>=min_mag_diff:
-    specratio,freqbin,rawefc,rawe,rawen,rawmfc,rawm,rawmn,trav_time_main,_,sta_freq,sta_spec,R,\
-        = compute_spectra(paths,T_coda,time_add,wave_len,num_tapers,twin,remove_resp,snrthres,Sarri,Parri,Orig,\
-          Late,Lone,Dep,freesurface_cor,freesurface_vp,freesurface_vs,file1,file2,mainev,egfev,wv1,overlap,chan)
+    try:
+        specratio,freqbin,rawefc,rawe,rawen,rawmfc,rawm,rawmn,trav_time_main,_,sta_freq,sta_spec,R,\
+            = compute_spectra(paths,T_coda,time_add,wave_len,num_tapers,twin,remove_resp,snrthres,Sarri,Parri,Orig,\
+              Late,Lone,Dep,freesurface_cor,freesurface_vp,freesurface_vs,file1,file2,mainev,egfev,wv1,overlap,chan)
+    except:
+        specratio = []; freqbin = []
     # save_out(out_path,freqbin, specratio, rawm, rawe, wv1,station,mainev )
     if len(freqbin)>0 and fit_freq_range:
         if fname[1]:
@@ -224,7 +227,7 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
             freqbin=freqbin[(np.array(np.where(freqbin>=fit_freq_range[0]))).min():(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1]
     else:
         fit_freq_range=[0,nyquist_freq]
-    if (np.isnan(specratio)).any() != True:
+    if len(specratio)>0 and (np.isnan(specratio)).any() != True:
         specmain[station] = specratio; freqmain[station] = freqbin
         mainfile[station] = file1; trtm[station] = trav_time_main
         wmfc[station] = rawmfc; wm[station] = rawm; wmn[station] = rawmn
