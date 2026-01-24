@@ -204,6 +204,7 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
         file2 = evfold2
         st1_calmag=read(evfold1)
         st2_calmag = read(evfold2)
+        print(st1_calmag,st2_calmag)
         mag_diff=cal_mag_diff( st1_calmag, st2_calmag )
     
         print('==========================MAGTITUDE DIFFERENCE==========================\n','\t'*4,round(mag_diff,2),\
@@ -212,10 +213,10 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
     # if mag_diff>=min_mag_diff:
     try:
         specratio,freqbin,rawefc,rawe,rawen,rawmfc,rawm,rawmn,trav_time_main,_,sta_freq,sta_spec,R,\
-            = compute_spectra(paths,T_coda,time_add,wave_len,num_tapers,twin,remove_resp,snrthres,Sarri,Parri,Orig,\
-              Late,Lone,Dep,freesurface_cor,freesurface_vp,freesurface_vs,file1,file2,mainev,egfev,wv1,overlap,chan)
+        = compute_spectra(paths,T_coda,time_add,wave_len,num_tapers,twin,remove_resp,snrthres,Sarri,Parri,Orig,\
+          Late,Lone,Dep,freesurface_cor,freesurface_vp,freesurface_vs,file1,file2,mainev,egfev,wv1,overlap,chan)
     except:
-        specratio = []; freqbin = []
+        specratio=[];freqbin=[]
     # save_out(out_path,freqbin, specratio, rawm, rawe, wv1,station,mainev )
     if len(freqbin)>0 and fit_freq_range:
         if fname[1]:
@@ -657,12 +658,13 @@ def stressdrop(controlfile):
                         plot_station=plot_station
                     else:
                         plot_station=all_stations   
-                    Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df=Read_metadata(all_sta,d3,fname,data_path,wave_align=wave_align)
+                    Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df,all_sta=Read_metadata(all_sta,d3,fname,data_path,wave_align=wave_align)
                     try:
                         moment=(d3[d3['Event ID']==Target_events[eid]]['Moment']).values[0]
                     except:
                         moment=None
                     ml=(d3[d3['Event ID']==Target_events[eid]]['Mag']).values[0]
+                    moment = 10**(1.5*ml+0.5*np.log(1+np.exp(4.6-ml))+8.35)
                     if not fixed_window:
                         twin = cal_twin(ml,moment)
                     else:
