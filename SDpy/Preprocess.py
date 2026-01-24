@@ -26,6 +26,7 @@ import warnings
 
 def Read_metadata(all_stas,ev_info,fname,data_path,wave_align='cc'):
     # print('all_stas:',all_stas)
+    all_sta=[]
     ev_info['Event ID'] = ev_info['Event ID'].astype(str)
     Orig,Sarri,Parri,Late,Lone,Dep={},{},{},{},{},{}
     sourcepara_df = pd.DataFrame()
@@ -48,87 +49,91 @@ def Read_metadata(all_stas,ev_info,fname,data_path,wave_align='cc'):
                     pass
             main_path.sort()
             egf_path.sort()
-            st_main=read(main_path[0])
-            channel=st_main[0].stats.channel
-            Start = st_main[0].stats['starttime']
-            starttime = UTCDateTime(Start)
-            starttime=st_main[0].stats.starttime
             try:
-                p_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t1)
-                s_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t2)
-            except:
-                print("#"*72,f"\nYou haven't picked up the wave at station {sta}.\n","#"*72,sep='')
-            result = ev_info[ev_info['Event ID']==fname[0]]
-            origin_time=UTCDateTime(result['Origin time'].values[0])
-            MAG = result['Mag'].values[0]
-            LAT = result['Lat'].values[0]
-            LON = result['Lon'].values[0]
-            DEP = result['Dep'].values[0]
-            
-            if egf_path:
-                for e in egf_path:
-                    st=read(e)
-                    if st[0].stats.channel==channel:
-                        st_egf=st
-                    else:
-                        try:
-                            st_egf=read(egf_path[0])
-                        except:
-                            traceback.print_exc()
-                Start1 = st_egf[0].stats['starttime']
-                starttime1 = UTCDateTime(Start1)
-                starttime1=st_egf[0].stats.starttime
+                st_main=read(main_path[0])
+                channel=st_main[0].stats.channel
+                Start = st_main[0].stats['starttime']
+                starttime = UTCDateTime(Start)
+                starttime=st_main[0].stats.starttime
                 try:
-                    p_arrival1=UTCDateTime(starttime1+st_egf[0].stats.sac.t1)
-                    s_arrival1=UTCDateTime(starttime1+st_egf[0].stats.sac.t2)
+                    p_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t1)
+                    s_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t2)
                 except:
                     print("#"*72,f"\nYou haven't picked up the wave at station {sta}.\n","#"*72,sep='')
+                result = ev_info[ev_info['Event ID']==fname[0]]
+                origin_time=UTCDateTime(result['Origin time'].values[0])
+                MAG = result['Mag'].values[0]
+                LAT = result['Lat'].values[0]
+                LON = result['Lon'].values[0]
+                DEP = result['Dep'].values[0]
                 
-                result1 = ev_info[ev_info['Event ID']==fname[1]]
-                origin_time1=UTCDateTime(result1['Origin time'].values[0])
-                MAG1 = result1['Mag'].values[0]
-                LAT1 = result1['Lat'].values[0]
-                LON1 = result1['Lon'].values[0]
-                DEP1 = result1['Dep'].values[0]
-                Orig[sta]={fname[0]:origin_time,fname[1]:origin_time1}
-                if wave_align.lower()=='cc':  
+                if egf_path:
+                    for e in egf_path:
+                        st=read(e)
+                        if st[0].stats.channel==channel:
+                            st_egf=st
+                        else:
+                            try:
+                                st_egf=read(egf_path[0])
+                            except:
+                                traceback.print_exc()
+                    Start1 = st_egf[0].stats['starttime']
+                    starttime1 = UTCDateTime(Start1)
+                    starttime1=st_egf[0].stats.starttime
+                    # try:
+                    p_arrival1=UTCDateTime(starttime1+st_egf[0].stats.sac.t1)
+                    s_arrival1=UTCDateTime(starttime1+st_egf[0].stats.sac.t2)
+                    # except:
+                    #     print("#"*72,f"\nYou haven't picked up the wave at station {sta}.\n","#"*72,sep='')
                     
-                    template1=st_main.copy()
-                    template2=st_main.copy()
-                    egf_cpp=st_egf.copy()
-                    egf_cps=st_egf.copy()
-                    cross_win= np.ceil(s_arrival - p_arrival)
-                    tbefor = np.ceil(s_arrival1 - p_arrival1)
-                    template1.trim(starttime=p_arrival,endtime=min(p_arrival+cross_win,st_main[0].stats.endtime))
-                    template2.trim(starttime=s_arrival,endtime=min(s_arrival+cross_win,st_main[0].stats.endtime))
-                    egf_cpp.trim(starttime=max(p_arrival1-tbefor,st_egf[0].stats.starttime),endtime=min(p_arrival1+cross_win*2,st_egf[0].stats.endtime))
-                    egf_cps.trim(starttime=max(s_arrival1-tbefor,st_egf[0].stats.starttime),endtime=min(s_arrival1+cross_win*2,st_egf[0].stats.endtime))
-                    
-                    p_arrival1,cor1,_=Corrss1(template1,egf_cpp)
-                    s_arrival1,cor2,_=Corrss1(template2,egf_cps)
-                    
-                Sarri[sta]={fname[0]:s_arrival,fname[1]:s_arrival1}
-                Parri[sta]={fname[0]:p_arrival,fname[1]:p_arrival1}
-                Late[sta]={fname[0]:LAT,fname[1]:LAT1}
-                Lone[sta]={fname[0]:LON,fname[1]:LON1}
-                Dep[sta]={fname[0]:DEP,fname[1]:DEP1}
-                mag={fname[0]:MAG,fname[1]:MAG1}
-            else:
-                Orig[sta]={fname[0]:origin_time}
-                Sarri[sta]={fname[0]:s_arrival}
-                Parri[sta]={fname[0]:p_arrival}
-                Late[sta]={fname[0]:LAT}
-                Lone[sta]={fname[0]:LON}
-                Dep[sta]={fname[0]:DEP}
-                mag={fname[0]:MAG}
-                
+                    result1 = ev_info[ev_info['Event ID']==fname[1]]
+                    origin_time1=UTCDateTime(result1['Origin time'].values[0])
+                    MAG1 = result1['Mag'].values[0]
+                    LAT1 = result1['Lat'].values[0]
+                    LON1 = result1['Lon'].values[0]
+                    DEP1 = result1['Dep'].values[0]
+                    Orig[sta]={fname[0]:origin_time,fname[1]:origin_time1}
+                    if wave_align.lower()=='cc':  
+                        
+                        template1=st_main.copy()
+                        template2=st_main.copy()
+                        egf_cpp=st_egf.copy()
+                        egf_cps=st_egf.copy()
+                        cross_win= np.ceil(s_arrival - p_arrival)
+                        tbefor = np.ceil(s_arrival1 - p_arrival1)
+                        template1.trim(starttime=p_arrival,endtime=min(p_arrival+cross_win,st_main[0].stats.endtime))
+                        template2.trim(starttime=s_arrival,endtime=min(s_arrival+cross_win,st_main[0].stats.endtime))
+                        egf_cpp.trim(starttime=max(p_arrival1-tbefor,st_egf[0].stats.starttime),endtime=min(p_arrival1+cross_win*2,st_egf[0].stats.endtime))
+                        egf_cps.trim(starttime=max(s_arrival1-tbefor,st_egf[0].stats.starttime),endtime=min(s_arrival1+cross_win*2,st_egf[0].stats.endtime))
+                        
+                        p_arrival1,cor1,_=Corrss1(template1,egf_cpp)
+                        s_arrival1,cor2,_=Corrss1(template2,egf_cps)
+                        
+                    Sarri[sta]={fname[0]:s_arrival,fname[1]:s_arrival1}
+                    Parri[sta]={fname[0]:p_arrival,fname[1]:p_arrival1}
+                    Late[sta]={fname[0]:LAT,fname[1]:LAT1}
+                    Lone[sta]={fname[0]:LON,fname[1]:LON1}
+                    Dep[sta]={fname[0]:DEP,fname[1]:DEP1}
+                    mag={fname[0]:MAG,fname[1]:MAG1}
+                else:
+                    Orig[sta]={fname[0]:origin_time}
+                    Sarri[sta]={fname[0]:s_arrival}
+                    Parri[sta]={fname[0]:p_arrival}
+                    Late[sta]={fname[0]:LAT}
+                    Lone[sta]={fname[0]:LON}
+                    Dep[sta]={fname[0]:DEP}
+                    mag={fname[0]:MAG}
+                all_sta.append(sta)
+            except:
+                print(f'Remove station {sta} because error:',sep='')
+                traceback.print_exc()
     sourcepara_df['Tartget Events']=[fname[0]]
     sourcepara_df['Origtime'] =list((ev_info[ev_info['Event ID']==fname[0]]['Origin time']).values)[0]
     sourcepara_df['LON'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Lon'])[0]
     sourcepara_df['LAT'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Lat'])[0]
     sourcepara_df['DEP'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Dep'])[0]
-    
-    return Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df
+
+    return Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df,all_sta
 
 def effective_sta_EGF(method,data_path,all_stas,*events):
     stations=all_stas.copy()
