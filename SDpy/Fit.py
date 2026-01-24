@@ -676,7 +676,7 @@ def find_optimal_fit(model_type, num_workers, fc_min, fc_max, **kwargs):
                 
                 for i in stations:
                     if len(aligned_freqs[i])!=0:
-                        if len(aligned_freqs[i])<0.5*max_length or aligned_freqs[i][0] > f_thr_l:#not (aligned_freqs[i][0] <= f_thr_l and aligned_freqs[i][-1] >= f_thr_r):
+                        if (aligned_freqs[i][-1]-aligned_freqs[i][0])<0.5*f_range or aligned_freqs[i][0] > f_thr_l:#not (aligned_freqs[i][0] <= f_thr_l and aligned_freqs[i][-1] >= f_thr_r):
                             del aligned_freqs[i]
                             del aligned_specs[i]
                     else:
