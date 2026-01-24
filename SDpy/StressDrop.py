@@ -220,10 +220,12 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
     # save_out(out_path,freqbin, specratio, rawm, rawe, wv1,station,mainev )
     if len(freqbin)>0 and fit_freq_range:
         if fname[1]:
-            a=(np.array(np.where(freqbin>=fit_freq_range[0]))).min();b=(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1
+            a=(np.array(np.where(freqbin>=fit_freq_range[0]))).min() if freqbin[-1]>fit_freq_range[0] else 0
+            b=(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1 if freqbin[0]<fit_freq_range[-1] else len(freqbin)
             freqbin=freqbin[a:b];specratio=specratio[a:b]
         else:
-            a=(np.array(np.where(rawmfc>=fit_freq_range[0]))).min();b=(np.array(np.where(rawmfc<=fit_freq_range[1]))).max()+1
+            a=(np.array(np.where(rawmfc>=fit_freq_range[0]))).min() if rawmfc[-1]>fit_freq_range[0] else 0
+            b=(np.array(np.where(rawmfc<=fit_freq_range[1]))).max()+1 if rawmfc[0]<fit_freq_range[-1] else len(rawmfc)
             rawmfc=rawmfc[a:b];rawm=rawm[a:b];rawmn=rawmn[a:b]
             freqbin=freqbin[(np.array(np.where(freqbin>=fit_freq_range[0]))).min():(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1]
     else:
@@ -659,6 +661,7 @@ def stressdrop(controlfile):
                     else:
                         plot_station=all_stations   
                     Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df,all_sta=Read_metadata(all_sta,d3,fname,data_path,wave_align=wave_align)
+                    print(11111111,all_sta)
                     try:
                         moment=(d3[d3['Event ID']==Target_events[eid]]['Moment']).values[0]
                     except:
