@@ -706,7 +706,8 @@ def find_optimal_fit(model_type, num_workers, fc_min, fc_max, **kwargs):
                     freq_bin = aligned_freqs[0]
                     
                     if isinstance(fit_range, list) and len(fit_range) > 0:
-                        l = np.where(freq_bin >= fit_range[0])[0][0];u = np.where(freq_bin <= fit_range[-1])[0][-1]
+                        l = np.where(freq_bin >= fit_range[0])[0][0] if freq_bin[-1]>fit_range[0] else 0
+                        u = np.where(freq_bin <= fit_range[-1])[0][-1] if freq_bin[0]<fit_range[-1] else len(freq_bin)
                         freq_bin = freq_bin[l:u]
                         spec_ratio = spec_ratio[l:u]
                 
