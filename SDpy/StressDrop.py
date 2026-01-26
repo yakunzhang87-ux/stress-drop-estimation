@@ -667,7 +667,6 @@ def stressdrop(controlfile):
                     except:
                         moment=None
                     ml=(d3[d3['Event ID']==Target_events[eid]]['Mag']).values[0]
-                    moment = 10**(1.5*ml+0.5*np.log(1+np.exp(4.6-ml))+8.35)
                     if not fixed_window:
                         twin = cal_twin(ml,moment)
                     else:
