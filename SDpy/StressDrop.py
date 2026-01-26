@@ -252,7 +252,7 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
                     sta_n=sta+'('+item+')'
                     specmain[sta_n]=specmains[item][sta]     
         
-        if k==EGF_event[-1] or k==None:
+        if (mode==1 and k==EGF_event[-1]) or mode==0 or k==None:
             
             fc1main=fit_and_plot(paths,Sarri,Parri,Orig,mag,showfc2,sumtype,source_model,plot_station,num_tapers,twin,numworkers,\
                                 sourcepara_df,overlap,T_coda,EGF_event,remove_resp,freesurface_cor,freesurface_vp,freesurface_vs,\
@@ -661,7 +661,7 @@ def stressdrop(controlfile):
                     else:
                         plot_station=all_stations   
                     Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df,all_sta=Read_metadata(all_sta,d3,fname,data_path,wave_align=wave_align)
-                    print(11111111,all_sta)
+                    
                     try:
                         moment=(d3[d3['Event ID']==Target_events[eid]]['Moment']).values[0]
                     except:
