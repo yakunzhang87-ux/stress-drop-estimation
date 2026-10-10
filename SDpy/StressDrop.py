@@ -7,16 +7,16 @@ Created on Thu Jan  2 18:09:26 2025
 """
 from obspy import read
 import os
-# import sys
+import sys
 import pandas as pd
 import numpy as np
 import ast
 import json
 import traceback
 from .Preprocess import compute_spectra,cal_mag_diff,effective_sta_EGF,Read_metadata,cal_twin
-from .Fit import fit_spectrum_model,find_optimal_fit,compute_spec_ratio,D_squared#determine_asymptote_bounds
+from .Fit import fit_spectrum_model,find_optimal_fit,compute_spec_ratio,D_squared#determine_asymptote_bounds,Skip
 from .Plot import create_spectral_ratio_plots,plot_spectral_ratio_fit,export_figure
-
+        
 def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magnitude, showfc2, combine_type, model_type, 
                  plot_stations, num_tapers, time_window, n_workers, result_df, overlap_ratio, t_coda, egf_flag, remove_instrument_resp, 
                  free_surface_corr, vp, vs, late_picks, lon, dep, network, time_padding, fit_range, fit_amp_ratio, fit_method, mode, 
@@ -29,7 +29,7 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
         freq_keys = list(freq_bins.keys())
         max_len_key = max(freq_keys, key=lambda k: len(freq_bins[k]))
         stats = []
-
+        
         for k in station_keys:
             sta = k.split('(')[0]
             if k not in freq_bins:
@@ -40,7 +40,7 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
                     freq_bins[k] = freq_bins[max_len_key][:len(spec_ratios[k])]
                 elif diff < 0:
                     spec_ratios[k] = spec_ratios[k][:len(freq_bins[k])]
-
+    
             try:
                 if sta not in stats:
                     popt, _ = fit_spectrum_model(wm_spec[sta], wm_freq[sta], k,
@@ -58,8 +58,7 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
         
         fc_max = max(fc_dict.values()) + 50
         fc_min = np.median(list(fc_dict.values())) * 0.5
-        
-
+    
         if plot_stations:
             indexx = list(set(stats) & set(plot_stations))
         else:
@@ -85,7 +84,7 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
                 fc_main = round(gamma_a, 2) if gamma_a else ''
                 gamma_a2 = round(gamma_a2, 2) if gamma_a2 else ''
                 print('#' * 72, f"\nfc(main) = {fc_main}\n", '#' * 72, sep='')
-
+    
             fig, ax, _ = create_spectral_ratio_plots(output_path, valid_sta, sta_start_times, sta_end_times, origin_time,
                                                       remove_instrument_resp, free_surface_corr, vp, vs, late_picks, lon, dep,
                                                       network, time_padding, wavelen, t_coda, num_tapers, overlap_ratio, n_workers,
@@ -93,14 +92,14 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
                                                       channel, main_event, egf_event, spec_ratios, freq_bins, wm_freq, wm_spec,
                                                       wm_noise, we_freq, we_spec, we_noise, indexx, time_window, main_file,
                                                       egf_file, wave_type_main, main_tt)
-
+    
             result_df['fc(target)'] = fc_main if 'fc_main' in locals() else ''
             if combine_type.lower()!='weighted':
                 if len(freq_bin)!=0 and len(spec_ratio)!=0:
                     ax.loglog(freq_bin, spec_ratio, 'orangered', label='data', linewidth=5)
                     # ax.loglog(freq_bin, np.divide(compute_spec_ratio(freq_bin, *popt), tplier), 'g--', linewidth=2)
                     ax.loglog(freq_bin, compute_spec_ratio(freq_bin, *popt), 'g--', linewidth=2)
-
+    
             if type(var)==dict:
                 if combine_type.lower() == 'weighted' or mode == 1:
                     
@@ -124,32 +123,37 @@ def fit_and_plot(output_path, sta_start_times, sta_end_times, origin_time, magni
                     result_df['fc_err'] = round(fc_err,2) if fc_err!=0 else ''
                     export_figure(output_path, wavelen, t_coda, magnitude, [egf_event], model_type,
                                   fig, 'spec', indexx, wave_type_main, main_event, egf_event, mode, combine_type)
-
+    
             if (len(egf_flag) == 1 and egf_flag[0]) or (len(egf_flag) > 1 and mode == 0):
                 result_df['fc(egf)'] = gamma_a2 if 'gamma_a2' in locals() else ''
 
+    if not egf_event:
+        print('#' * 72, f"\nIndividual Amplitude Spectra fitted using {wave_type_egf} wave\n", '#' * 72, sep='')
+        station_keys = list(wm_freq.keys())
+        if plot_stations:
+            indexx = plot_stations[0]
         else:
-            print('#' * 72, f"\nIndividual Amplitude Spectra fitted using {wave_type_egf} wave\n", '#' * 72, sep='')
-            fig, ax, popt = create_spectral_ratio_plots(output_path, station_keys, sta_start_times, sta_end_times, origin_time,
-                                                        remove_instrument_resp, free_surface_corr, vp, vs, late_picks, lon, dep,
-                                                        network, time_padding, wavelen, t_coda, num_tapers, overlap_ratio, n_workers,
-                                                        model_type, egf_flag, mode, combine_type, [], quality_factor, fit_method, channel,
-                                                        main_event, egf_event, spec_ratios, freq_bins, wm_freq, wm_spec, wm_noise,
-                                                        we_freq, we_spec, we_noise, indexx, time_window, main_file, egf_file,
-                                                        wave_type_egf, main_tt)
-            
-            if combine_type == 'weighted':
-                # param = popt[0]; fc_err = popt[1]
-                # fc_main = param['fc_final']; fc_err = param['fc_err']
-                fc_main = popt[0]; fc_err = popt[1];
-                result_df['fc'] = fc_main
-            else:
-                fc_main = popt[0]; fc_err = popt[1]; 
-                result_df['fc'] = fc_main
-            result_df['fc_err'] = round(fc_err,2) if fc_err else ''
-            print('#' * 72, f"\nfc = {fc_main}\n", '#' * 72, sep='')
-            export_figure(output_path, wavelen, t_coda, magnitude, egf_flag, model_type, fig,
-                          'ind', indexx, wave_type_egf, main_event, egf_event, mode, combine_type)
+            indexx = station_keys[0]
+        fig, ax, popt = create_spectral_ratio_plots(output_path, station_keys, sta_start_times, sta_end_times, origin_time,
+                                                    remove_instrument_resp, free_surface_corr, vp, vs, late_picks, lon, dep,
+                                                    network, time_padding, wavelen, t_coda, num_tapers, overlap_ratio, n_workers,
+                                                    model_type, egf_flag, mode, combine_type, [], quality_factor, fit_method, channel,
+                                                    main_event, egf_event, spec_ratios, freq_bins, wm_freq, wm_spec, wm_noise,
+                                                    we_freq, we_spec, we_noise, indexx, time_window, main_file, egf_file,
+                                                    wave_type_egf, main_tt)
+        
+        if combine_type == 'weighted':
+            # param = popt[0]; fc_err = popt[1]
+            # fc_main = param['fc_final']; fc_err = param['fc_err']
+            fc_main = popt[0]; fc_err = popt[1];
+            result_df['fc'] = fc_main
+        else:
+            fc_main = popt[0]; fc_err = popt[1]; 
+            result_df['fc'] = fc_main
+        result_df['fc_err'] = round(fc_err,2) if fc_err else ''
+        print('#' * 72, f"\nfc = {fc_main}\n", '#' * 72, sep='')
+        export_figure(output_path, wavelen, t_coda, magnitude, egf_flag, model_type, fig,
+                      'ind', indexx, wave_type_egf, main_event, egf_event, mode, combine_type)
     return fc_main
 
 def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,source_model,overlap,plot_station,Parri,\
@@ -199,18 +203,17 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
     nyquist_freq = int(1/(2*mt[0].stats.delta))
    
     file1 = evfold1;file2 = None
-    mag_diff=1000
     if fname[1]:
         file2 = evfold2
-        st1_calmag=read(evfold1)
-        st2_calmag = read(evfold2)
-        print(st1_calmag,st2_calmag)
-        mag_diff=cal_mag_diff( st1_calmag, st2_calmag )
-    
-        print('==========================MAGTITUDE DIFFERENCE==========================\n','\t'*4,round(mag_diff,2),\
-              '\n========================================================================')
+        try:
+            st1_calmag=read(evfold1)
+            st2_calmag = read(evfold2)
+            mag_diff=cal_mag_diff( st1_calmag, st2_calmag )
+            print('==========================MAGTITUDE DIFFERENCE==========================\n','\t'*4,round(mag_diff,2),\
+                  '\n========================================================================')
+        except:
+            pass
   
-    # if mag_diff>=min_mag_diff:
     try:
         specratio,freqbin,rawefc,rawe,rawen,rawmfc,rawm,rawmn,trav_time_main,_,sta_freq,sta_spec,R,\
         = compute_spectra(paths,T_coda,time_add,wave_len,num_tapers,twin,remove_resp,snrthres,Sarri,Parri,Orig,\
@@ -218,25 +221,25 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
     except:
         specratio=[];freqbin=[]
     # save_out(out_path,freqbin, specratio, rawm, rawe, wv1,station,mainev )
-    if len(freqbin)>0 and fit_freq_range:
+    fit_range = fit_freq_range if fit_freq_range else [0,nyquist_freq]
+    if len(freqbin)>0:
         if fname[1]:
-            a=(np.array(np.where(freqbin>=fit_freq_range[0]))).min() if freqbin[-1]>fit_freq_range[0] else 0
-            b=(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1 if freqbin[0]<fit_freq_range[-1] else len(freqbin)
+            a=(np.array(np.where(freqbin>=fit_range[0]))).min() if freqbin[-1]>fit_range[0] else 0
+            b=(np.array(np.where(freqbin<=fit_range[1]))).max()+1 if freqbin[0]<fit_range[-1] else len(freqbin)
             freqbin=freqbin[a:b];specratio=specratio[a:b]
         else:
-            a=(np.array(np.where(rawmfc>=fit_freq_range[0]))).min() if rawmfc[-1]>fit_freq_range[0] else 0
-            b=(np.array(np.where(rawmfc<=fit_freq_range[1]))).max()+1 if rawmfc[0]<fit_freq_range[-1] else len(rawmfc)
+            a=(np.array(np.where(rawmfc>=fit_range[0]))).min() if rawmfc[-1]>fit_range[0] else 0
+            b=(np.array(np.where(rawmfc<=fit_range[1]))).max()+1 if rawmfc[0]<fit_range[-1] else len(rawmfc)
             rawmfc=rawmfc[a:b];rawm=rawm[a:b];rawmn=rawmn[a:b]
-            freqbin=freqbin[(np.array(np.where(freqbin>=fit_freq_range[0]))).min():(np.array(np.where(freqbin<=fit_freq_range[1]))).max()+1]
-    else:
-        fit_freq_range=[0,nyquist_freq]
+            freqbin=freqbin[(np.array(np.where(freqbin>=fit_range[0]))).min():(np.array(np.where(freqbin<=fit_range[1]))).max()+1]
+
     if len(specratio)>0 and (np.isnan(specratio)).any() != True:
         specmain[station] = specratio; freqmain[station] = freqbin
-        mainfile[station] = file1; trtm[station] = trav_time_main
-        wmfc[station] = rawmfc; wm[station] = rawm; wmn[station] = rawmn
-        all_sta_spec[station]=[sta_freq, sta_spec, R]
-        egffile[station] = file2; trtm[station] = trav_time_main;
-        wefc[station] = rawefc; we[station] = rawe; wen[station] = rawen;
+    mainfile[station] = file1; trtm[station] = trav_time_main
+    wmfc[station] = rawmfc; wm[station] = rawm; wmn[station] = rawmn
+    all_sta_spec[station]=[sta_freq, sta_spec, R]
+    egffile[station] = file2; trtm[station] = trav_time_main;
+    wefc[station] = rawefc; we[station] = rawe; wen[station] = rawen;
     
     if ssta==all_stations[-1]:
         if specmain and k==EGF_event[-1] and mode==1:
@@ -253,12 +256,11 @@ def sd_esti(paths,ssta,EGF_event,twin,snrthres,num_tapers,assume_drop,sumtype,so
                     specmain[sta_n]=specmains[item][sta]     
         
         if (mode==1 and k==EGF_event[-1]) or mode==0 or k==None:
-            
             fc1main=fit_and_plot(paths,Sarri,Parri,Orig,mag,showfc2,sumtype,source_model,plot_station,num_tapers,twin,numworkers,\
                                 sourcepara_df,overlap,T_coda,EGF_event,remove_resp,freesurface_cor,freesurface_vp,freesurface_vs,\
-                                Late,Lone,Dep,net,time_add,fit_freq_range,fit_amp_ratio,fit_method,mode,wave_len,Q,chan,nyquist_freq,\
+                                Late,Lone,Dep,net,time_add,fit_range,fit_amp_ratio,fit_method,mode,wave_len,Q,chan,nyquist_freq,\
                                 j,k,specmain,freqmain,egffile,mainfile,wm,wmfc,wmn,trtm,we,wefc,wen,trte,wv1,wv2,stfy,stfx)
-                
+    
     return specmain,stfy,freqmain,wefc,we,wen,trte,egffile,wmfc,wm,wmn,mainfile,trtm,stfx,all_sta_spec,fc1main
 
 def calc_M0(fc,all_sta_spec,main_tt,wave,model,Q,fsf,rho=2700,c=None,U=None):
@@ -667,6 +669,7 @@ def stressdrop(controlfile):
                     except:
                         moment=None
                     ml=(d3[d3['Event ID']==Target_events[eid]]['Mag']).values[0]
+                    # moment = 10**(1.5*ml+0.5*np.log(1+np.exp(4.6-ml))+8.35)
                     if not fixed_window:
                         twin = cal_twin(ml,moment)
                     else:
@@ -707,7 +710,8 @@ def stressdrop(controlfile):
                         all_finals[n][eid]=sourcepara_df
                 
                 except:
-                    print(f"Skip EGF {EGF_event}: ")
+                    if EGF_event:
+                        print(f"Skip EGF {EGF_event}: ")
                     traceback.print_exc() 
                     continue
                     # traceback.print_exc() 
