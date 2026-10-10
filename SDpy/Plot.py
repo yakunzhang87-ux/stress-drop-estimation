@@ -6,6 +6,7 @@ Created on Thu Jan  2 15:46:57 2025
 @author: Zhang et al.
 """
 import os
+import sys
 from obspy import read
 import numpy as np
 import matplotlib.pyplot as plt
@@ -109,7 +110,8 @@ def plot_event_waveform(win_length, t_coda, taper_count, overlap_ratio, egf_list
     trace.detrend('linear')
     trace.detrend('demean')
     trace.taper(max_percentage=0.05)
-
+    
+    print('p_arrival:',p_arrival,'noise_start:',noise_start)
     rel_noise_start = round(noise_start - trace.stats.starttime, 2)
     time_vals = trace.times(reftime=trace.stats.starttime)
     ax.plot(time_vals, trace.data, "k-", label=trace.stats.channel)
@@ -256,7 +258,7 @@ def plot_station_spectrum(all_station_labels, egf_event_id, freq_main, amp_main,
         y_max = max(max(amp_main), max_y_global) * 10
 
     # Set axis limits and appearance
-    ax.set_xlim([freq_min, freq_max])
+    # ax.set_xlim([freq_min, freq_max])
     ax.set_ylim([y_min, y_max])
     ax.set_xlabel('Frequency (Hz)', fontsize=26, fontweight='semibold')
     ax.set_ylabel('Amplitude (nm/Hz)', fontsize=26, fontweight='semibold')
@@ -636,8 +638,9 @@ def create_spectral_ratio_plots(paths, stations, s_arrivals, p_arrivals, origin_
         ax_spec (matplotlib.axes.Axes): Spectrum ratio axis
         popt (list): Spectrum fit parameters
     """
+    
     style_list = ['-', '--', '-.', ':', '.']
-    station_keys = list(spectral_ratios.keys())
+    station_keys = list(spectral_ratios.keys()) if spectral_ratios else stations
     color_scheme = generate_color_list(len(station_keys))
     fig = plt.figure(figsize=(18, 16))
     gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.25)
@@ -713,8 +716,9 @@ def create_spectral_ratio_plots(paths, stations, s_arrivals, p_arrivals, origin_
     ax_compare = fig.add_subplot(gs[1:3, 0])
     max_y, min_y = 1, 1000
     stations_used, egfs_used, stations1, all_y_max, all_y_min = [], [], [], 1, 1000
-    
+       
     for idx in range(len(station_keys)):
+
         station, egf = station_keys[idx].split('(')[0], egf_event_name
         if egf:
             if '(' in station_keys[idx]:
@@ -770,22 +774,22 @@ def create_spectral_ratio_plots(paths, stations, s_arrivals, p_arrivals, origin_
                 max_y = max(max_y, y_max_temp)
                 min_y = min(min_y, y_min_temp)
         
-                ax_spec.set_xlim([x_start, x_end])
+                # ax_spec.set_xlim([x_start, x_end])
                 plot_range=np.ceil(np.log10(all_y_max)-np.log10(all_y_min))
                 ax_spec.set_ylim(10 ** np.floor(np.log10(all_y_min)-plot_range/2-1-1), 10 ** np.ceil(np.log10(all_y_max)+plot_range/2+1))
-                ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
-                ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
+                ax_spec.xaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
+                ax_spec.yaxis.set_major_locator(LogLocator(base=10.0, numticks=5))
                 
-    if not egf_event_files[station]:
-        ax_spec1 = fig1.add_subplot(gs1[1:3, 0])
-        ax_spec1, popt, fc_err = plot_individual_spectra_fits(worker_count, model, fig1, ax_spec1, wm_data, wmfc_data, wmn_data, travel_times, wave_type, 'yes', stack_type, quality_factor, fit_method)
-        ax_spec1.set_xlabel('Frequency (Hz)', fontsize=26, weight='semibold')
-        ax_spec1.set_ylabel('Amplitude (nm/Hz)', fontsize=26, weight='semibold')
-        fig = fig1
-        ax_spec = ax_spec1; popt = [popt, fc_err]
+        if not egf_event_files[station]:
+            ax_spec1 = fig1.add_subplot(gs1[1:3, 0])
+            ax_spec1, popt, fc_err = plot_individual_spectra_fits(worker_count, model, fig1, ax_spec1, wm_data, wmfc_data, wmn_data, travel_times, wave_type, 'yes', stack_type, quality_factor, fit_method)
+            ax_spec1.set_xlabel('Frequency (Hz)', fontsize=26, weight='semibold')
+            ax_spec1.set_ylabel('Amplitude (nm/Hz)', fontsize=26, weight='semibold')
+            fig = fig1
+            ax_spec = ax_spec1; popt = [popt, fc_err]
     
     plt.close(fig)
-
+    
     return fig, ax_spec, popt
 
 def export_figure(config, win_len, t_coda, magnitude, egf_id, model, figure, plot_type, station_id, wave_type, event_type, *options):
