@@ -55,11 +55,11 @@ def Read_metadata(all_stas,ev_info,fname,data_path,wave_align='cc'):
                 Start = st_main[0].stats['starttime']
                 starttime = UTCDateTime(Start)
                 starttime=st_main[0].stats.starttime
-                try:
-                    p_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t1)
-                    s_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t2)
-                except:
-                    print("#"*72,f"\nYou haven't picked up the wave at station {sta}.\n","#"*72,sep='')
+                # try:
+                p_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t1)
+                s_arrival=UTCDateTime(starttime+st_main[0].stats.sac.t2)
+                # except:
+                #     print("#"*72,f"\nYou haven't picked up the wave at station {sta}.\n","#"*72,sep='')
                 result = ev_info[ev_info['Event ID']==fname[0]]
                 origin_time=UTCDateTime(result['Origin time'].values[0])
                 MAG = result['Mag'].values[0]
@@ -127,12 +127,13 @@ def Read_metadata(all_stas,ev_info,fname,data_path,wave_align='cc'):
             except:
                 print(f'Remove station {sta} because error:',sep='')
                 traceback.print_exc()
-    sourcepara_df['Tartget Events']=[fname[0]]
+                continue
+    sourcepara_df['Target Events']=[fname[0]]
     sourcepara_df['Origtime'] =list((ev_info[ev_info['Event ID']==fname[0]]['Origin time']).values)[0]
     sourcepara_df['LON'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Lon'])[0]
     sourcepara_df['LAT'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Lat'])[0]
     sourcepara_df['DEP'] = list(ev_info[ev_info['Event ID'] == fname[0]]['Dep'])[0]
-
+    
     return Orig,Sarri,Parri,Late,Lone,Dep,mag,sourcepara_df,all_sta
 
 def effective_sta_EGF(method,data_path,all_stas,*events):
@@ -1156,8 +1157,8 @@ def compute_spectra(paths, T_coda, t_offset, coda_duration, num_mtapers, win_len
     except:
         pass
 
-    if len(spec_ratio) == 0:
-        print('No valid EGF spectra available.')
+    if eventfile_egf and len(spec_ratio) == 0:
+        print(f'{eventid_egf} is an invalid.')
 
     return spec_ratio, trimmed_freq_main, egf_freq_uncorrected, egf_signal_uncorrected, egf_noise_uncorrected, main_freq_uncorrected, main_signal_uncorrected,\
     		main_noise_uncorrected, travel_time_main, travel_time_egf, sta_freq, sta_spec, R
